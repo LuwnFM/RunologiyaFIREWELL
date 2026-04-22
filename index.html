@@ -1405,8 +1405,35 @@ const RUNE_DB = {
     delay: SABRUNE_DELAY,
     desc: 'Текстово задаёт направление эффекта вправо',
     modDirection: 'вправо'
-  }
+  },
+  // === САБРУНЫ-МОДИФИКАТОРЫ (прикрепляются к точкам эффекторов) ===
+    sub_scale_up:   { label: 'сабУсиление', color: '#f59e0b', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: эффект +25%, магия +40%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_scale_up' },
+    sub_scale_down: { label: 'сабОслабление', color: '#fcd34d', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: эффект -30%, магия -40%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_scale_down' },
+    sub_freq_up:    { label: 'сабЧастота+', color: '#38bdf8', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: частота +15%, магия +50%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_freq_up' },
+    sub_freq_down:  { label: 'сабЧастота-', color: '#0ea5e9', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: частота -15%, магия -20%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_freq_down' },
+    sub_dir_forward:{ label: 'сабВперёд', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вперёд. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_forward' },
+    sub_dir_back:   { label: 'сабНазад', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление назад. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_back' },
+    sub_dir_up:     { label: 'сабВверх', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вверх. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_up' },
+    sub_dir_down:   { label: 'сабВниз', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вниз. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_down' },
+    sub_dir_left:   { label: 'сабВлево', color: '#fdba74', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление влево. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_left' },
+    sub_dir_right:  { label: 'сабВправо', color: '#fb7185', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вправо. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_right' }
 };
+
+const SUBRUNE_RULES = Object.freeze({
+    sub_scale_up:   { type: 'scale', factor: 1.25, magicCost: 1.40, allowedFamilies: ['effector_miro', 'effector', 'effector_priamo'] },
+    sub_scale_down: { type: 'scale', factor: 0.70, magicCost: 0.60, allowedFamilies: ['effector_miro', 'effector', 'effector_priamo'] },
+    sub_freq_up:    { type: 'frequency', shift: 0.15, magicCost: 1.50, allowedFamilies: ['effector', 'effector_light_rgb'] },
+    sub_freq_down:  { type: 'frequency', shift: -0.15, magicCost: 0.80, allowedFamilies: ['effector', 'effector_light_rgb'] },
+    sub_dir_forward:{ type: 'direction', value: 'вперёд', allowedFamilies: ['effector_priamo', 'effector'] },
+    sub_dir_back:   { type: 'direction', value: 'назад', allowedFamilies: ['effector_priamo', 'effector'] },
+    sub_dir_up:     { type: 'direction', value: 'вверх', allowedFamilies: ['effector_priamo', 'effector'] },
+    sub_dir_down:   { type: 'direction', value: 'вниз', allowedFamilies: ['effector_priamo', 'effector'] },
+    sub_dir_left:   { type: 'direction', value: 'влево', allowedFamilies: ['effector_priamo', 'effector'] },
+    sub_dir_right:  { type: 'direction', value: 'вправо', allowedFamilies: ['effector_priamo', 'effector'] }
+});
+
+CATEGORY_MAP.subrune_meta = 'Сабруны-модификаторы';
+CATEGORY_MAP.effect_meta = 'Руны-модификаторы';
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -1490,17 +1517,24 @@ function cssRgbWithAlpha(cssColor, alpha) {
 }
 
 function computeLightSpectrumState(node, meta) {
-  const base = getLightBaseWavelength(node);
-  if (!base) return null;
-  const totalShift = Number(meta && meta.freqShift) || 0;
-  let wavelength = base / (1 + totalShift);
-  wavelength = Math.round(Math.max(380, Math.min(780, wavelength)));
-  return {
-    wavelength,
-    totalShift,
-    colorCss: wavelengthToCSS(wavelength),
-    colorName: wavelengthToColorName(wavelength)
-  };
+    const base = getLightBaseWavelength(node);
+    if (!base) return null;
+    
+    // Сдвиг от цепных модификаторов
+    const metaShift = Number(meta && meta.freqShift) || 0;
+    // Сдвиг от прикреплённых сабрун
+    const subShift = (node && node.subruneState && node.subruneState.freqShift) || 0;
+    
+    const totalShift = metaShift + subShift;
+    let wavelength = base / (1 + totalShift);
+    wavelength = Math.round(Math.max(380, Math.min(780, wavelength)));
+    
+    return {
+        wavelength,
+        totalShift,
+        colorCss: wavelengthToCSS(wavelength),
+        colorName: wavelengthToColorName(wavelength)
+    };
 }
 
 function ensureButtonState() {
@@ -1766,6 +1800,9 @@ class Node {
         fromNodeType: null
       });
     }
+    
+    this.attachedSubrunes = [];
+    this.maxSubrunes = this.def.maxSubrunes || 0;
 
     this.reset();
   }
@@ -1788,6 +1825,8 @@ class Node {
     this.state.effectColor = baseSpectrum ? baseSpectrum.colorCss : null;
     this.state.frequencyShiftPct = baseSpectrum ? (baseSpectrum.totalShift * 100).toFixed(1) : '0.0';
     this.data.value = null;
+    this.attachedSubrunes = [];
+    this.subruneState = { scale: 1, magicCost: 1, freqShift: 0, direction: null };
     this.data.lastUpdatedTime = -1;
     this.memory.value = 0;
     this.runtime = {
@@ -1858,13 +1897,20 @@ class Node {
 }
 
 class Bridge {
-  constructor(id, fromNode, fromPort, toNode, toPort) {
+constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     this.id = id;
     this.a = fromNode;
     this.b = toNode;
     this.fromPort = fromPort;
     this.toPort = toPort;
+    
     this.delay = DEFAULT_BRIDGE_DELAY;
+    this.isAttachment = opts?.isAttachment || false;
+    
+    if (this.isAttachment) {
+        this.delay = SABRUNE_DELAY; // 5 мс по документу
+    }
+
     this.activeSignal = SIG.NONE;
     this.glow = 0;
     this.lastUsedAt = -1;
@@ -2935,43 +2981,83 @@ class Engine {
     }
   }
 
-  createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
+createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
     if (!fromNode || !toNode) return null;
-    if (fromPort < 0 || fromPort >= (fromNode.def?.outputs || 0)) {
-      if (!opts.silent) this.log('🚫 У блока ' + fromNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
-      return null;
+    
+    // 1. Определяем, является ли соединение прикреплением сабруны
+    const isSubruneConnect = fromNode.def.isSubrune || toNode.def.isSubrune;
+    let hostNode = null, subNode = null;
+
+    if (isSubruneConnect) {
+        hostNode = fromNode.def.isSubrune ? toNode : fromNode;
+        subNode  = fromNode.def.isSubrune ? fromNode : toNode;
+        
+        const rule = SUBRUNE_RULES[subNode.def.subruneRuleKey];
+        if (!rule) {
+            if (!opts.silent) this.log('🚫 У ' + subNode.label + ' нет правил прикрепления.', 'warn');
+            return null;
+        }
+
+        // Лимит точек (по умолчанию 3)
+        const maxSub = hostNode.def.maxSubrunes || 3;
+        if (hostNode.attachedSubrunes.length >= maxSub) {
+            if (!opts.silent) this.log('🚫 Лимит точек крепления сабрун на ' + hostNode.label + ' достигнут.', 'warn');
+            return null;
+        }
+
+        // Проверка совместимости
+        const isAllowed = rule.allowedFamilies.includes(hostNode.def.family) || rule.allowedFamilies.includes(hostNode.def.type);
+        if (!isAllowed) {
+            if (!opts.silent) this.log('🚫 Сабруна ' + subNode.label + ' несовместима с ' + hostNode.label + ' (' + hostNode.def.family + ').', 'warn');
+            return null;
+        }
+        
+        // Помечаем как прикрепление (чтобы Bridge поставил 5мс)
+        opts = { ...opts, isAttachment: true };
+    } else {
+        // Стандартные проверки портов только для обычных цепей
+        if (fromPort < 0 || fromPort >= (fromNode.def?.outputs || 0)) {
+            if (!opts.silent) this.log('🚫 У блока ' + fromNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
+            return null;
+        }
+        if (toPort < 0 || toPort >= (toNode.def?.inputs || 0)) {
+            if (!opts.silent) this.log('🚫 У блока ' + toNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
+            return null;
+        }
+        if (fromNode === toNode && fromPort === toPort) {
+            if (!opts.silent) this.log('🚫 Нельзя соединить порт сам с собой.', 'warn');
+            return null;
+        }
+        const same = this.connections.find(c => c.fromNode === fromNode && c.fromPort === fromPort && c.toNode === toNode && c.toPort === toPort);
+        if (same) {
+            if (!opts.silent) this.log('ℹ️ Такой мостик уже существует.', 'sys');
+            return same;
+        }
+        const outCount = this.getPortConnectionCount(fromNode, fromPort, 'out');
+        const outCap = this.getPortCapacity(fromNode, fromPort, 'out');
+        if (outCount >= outCap) {
+            if (!opts.silent) this.log('🚫 Выходной порт уже заполнен.', 'warn');
+            return null;
+        }
+        const inCount = this.getPortConnectionCount(toNode, toPort, 'in');
+        const inCap = this.getPortCapacity(toNode, toPort, 'in');
+        if (inCount >= inCap) {
+            if (!opts.silent) this.log('🚫 Входной порт уже заполнен.', 'warn');
+            return null;
+        }
     }
-    if (toPort < 0 || toPort >= (toNode.def?.inputs || 0)) {
-      if (!opts.silent) this.log('🚫 У блока ' + toNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
-      return null;
-    }
-    if (fromNode === toNode && fromPort === toPort) {
-      if (!opts.silent) this.log('🚫 Нельзя соединить порт сам с собой.', 'warn');
-      return null;
-    }
-    const same = this.connections.find(c => c.fromNode === fromNode && c.fromPort === fromPort && c.toNode === toNode && c.toPort === toPort);
-    if (same) {
-      if (!opts.silent) this.log('ℹ️ Такой мостик уже существует.', 'sys');
-      return same;
-    }
-    const outCount = this.getPortConnectionCount(fromNode, fromPort, 'out');
-    const outCap = this.getPortCapacity(fromNode, fromPort, 'out');
-    if (outCount >= outCap) {
-      if (!opts.silent) this.log('🚫 ' + this.describePort(fromNode, fromPort, 'out') + ' у блока ' + fromNode.label + ' уже использует максимум ' + outCap + ' соединения.', 'warn');
-      return null;
-    }
-    const inCount = this.getPortConnectionCount(toNode, toPort, 'in');
-    const inCap = this.getPortCapacity(toNode, toPort, 'in');
-    if (inCount >= inCap) {
-      if (!opts.silent) this.log('🚫 ' + this.describePort(toNode, toPort, 'in') + ' у блока ' + toNode.label + ' уже заполнен: ' + inCap + ' из ' + inCap + ' соединений.', 'warn');
-      return null;
-    }
-    const bridge = new Bridge(this.nextId++, fromNode, fromPort, toNode, toPort);
+
+    const bridge = new Bridge(this.nextId++, fromNode, fromPort, toNode, toPort, opts);
     const connection = new Connection(this.nextId++, fromNode, fromPort, toNode, toPort, bridge);
     this.bridges.push(bridge);
     this.connections.push(connection);
+
+    // Регистрируем сабруну у хоста
+    if (opts.isAttachment && hostNode && subNode) {
+        hostNode.attachedSubrunes.push(subNode);
+    }
     return connection;
-  }
+}
 
   clearSimulationState() {
     this.simTime = 0;
@@ -3189,6 +3275,27 @@ class Engine {
   }
 
   evaluateNode(node, time, reason = 'event') {
+    // Сброс и расчет мультипликаторов сабрун перед оценкой узла
+node.subruneState.scale = 1;
+node.subruneState.magicCost = 1;
+node.subruneState.freqShift = 0;
+node.subruneState.direction = null;
+
+for (const sub of node.attachedSubrunes) {
+    const rule = SUBRUNE_RULES[sub.def.subruneRuleKey] || SUBRUNE_RULES[sub.type];
+    if (!rule) continue;
+    if (rule.type === 'scale') {
+        node.subruneState.scale *= rule.factor;
+        node.subruneState.magicCost *= rule.magicCost;
+    }
+    if (rule.type === 'frequency') {
+        node.subruneState.freqShift += rule.shift;
+        node.subruneState.magicCost *= rule.magicCost;
+    }
+    if (rule.type === 'direction') {
+        node.subruneState.direction = rule.value;
+    }
+}
     const type = node.def.type;
     const sourceTag = node.state.lastSourceTag || node.sourceTag || null;
     const sourceNodeId = node.state.lastSourceNodeId || null;
@@ -3490,8 +3597,10 @@ class Engine {
       const input = this.getInput(node, 0);
       if (!input || input.signal !== SIG.STRONG) return;
       this.updateNodeActivation(node, time, SIG.STRONG, input.sourceTag || sourceTag, input.sourceNodeId || sourceNodeId);
-      const effectText = this.buildEffectText(node, input.meta);
-      this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effectText, 'run');
+      const effText = this.buildEffectText(node, input.meta);
+const scaleTxt = node.subruneState.scale !== 1 ? ` | Сила: x${node.subruneState.scale.toFixed(2)}` : '';
+const dirTxt = node.subruneState.direction ? ` | Направление: ${node.subruneState.direction}` : '';
+this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effText + scaleTxt + dirTxt, 'run');
       this.emitFromNode(node, time + node.def.delay, SIG.STRONG, null, null, input.sourceTag || sourceTag, input.meta, input.sourceNodeId || sourceNodeId);
       return;
     }
@@ -3790,25 +3899,37 @@ getPortPos(node, index, type) {
     let best = null;
     let bestDist = Infinity;
     for (const node of this.nodes) {
-      for (let i = 0; i < node.def.inputs; i++) {
-        const p = this.getPortPos(node, i, 'in');
-        const d = Math.hypot(x - p.x, y - p.y);
-        if (d < threshold && d < bestDist) {
-          best = { node, index: i, type: 'in' };
-          bestDist = d;
+        // Если это сабруна, разрешаем цепляться за её центр
+        if (node.def.isSubrune) {
+            const cx = node.x + node.w / 2;
+            const cy = node.y + node.h / 2;
+            const d = Math.hypot(x - cx, y - cy);
+            if (d < threshold * 1.5 && d < bestDist) {
+                best = { node, index: 0, type: 'out' };
+                bestDist = d;
+            }
+            continue; 
         }
-      }
-      for (let i = 0; i < node.def.outputs; i++) {
-        const p = this.getPortPos(node, i, 'out');
-        const d = Math.hypot(x - p.x, y - p.y);
-        if (d < threshold && d < bestDist) {
-          best = { node, index: i, type: 'out' };
-          bestDist = d;
+        
+        for (let i = 0; i < node.def.inputs; i++) {
+            const p = this.getPortPos(node, i, 'in');
+            const d = Math.hypot(x - p.x, y - p.y);
+            if (d < threshold && d < bestDist) {
+                best = { node, index: i, type: 'in' };
+                bestDist = d;
+            }
         }
-      }
+        for (let i = 0; i < node.def.outputs; i++) {
+            const p = this.getPortPos(node, i, 'out');
+            const d = Math.hypot(x - p.x, y - p.y);
+            if (d < threshold && d < bestDist) {
+                best = { node, index: i, type: 'out' };
+                bestDist = d;
+            }
+        }
     }
     return best;
-  }
+}
 
   getBridgeAt(x, y) {
     const portShield = (this.isMobile ? 14 : 12) / this.viewport.scale;
@@ -3847,6 +3968,10 @@ getPortPos(node, index, type) {
   }
 
   deleteNode(node) {
+    // Очистка ссылок на сабруны у хостов
+    for (const n of this.nodes) {
+        n.attachedSubrunes = n.attachedSubrunes.filter(s => s !== node);
+    }
     this.nodes = this.nodes.filter(n => n !== node);
     const related = this.connections.filter(c => c.fromNode === node || c.toNode === node);
     for (const conn of related) {
@@ -3935,6 +4060,14 @@ getPortPos(node, index, type) {
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
+    if (bridge.isAttachment) {
+    ctx.save();
+    ctx.setLineDash([6 / this.viewport.scale, 4 / this.viewport.scale]);
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+    ctx.lineWidth = 2 / this.viewport.scale;
+    ctx.stroke();
+    ctx.restore();
+}
 
     bridge.glow = Math.max(0, bridge.glow - 0.02);
 
@@ -3997,8 +4130,6 @@ getPortPos(node, index, type) {
     ctx.fillStyle = color;
     ctx.shadowBlur = 16;
     ctx.shadowColor = color;
-    ctx.fill();
-    ctx.shadowBlur = 0;
     if (particle.signal === SIG.DATA && particle.data !== null) {
       ctx.font = (9 / this.viewport.scale) + 'px monospace';
       ctx.fillStyle = '#e2e8f0';
@@ -4025,6 +4156,31 @@ getPortPos(node, index, type) {
     ctx.fill();
     ctx.stroke();
     ctx.shadowBlur = 0;
+
+    // ✅ Отрисовка прикрепленных сабрун (вставьте сюда)
+    if (node.attachedSubrunes && node.attachedSubrunes.length > 0) {
+        const total = node.attachedSubrunes.length;
+        const hostRadius = Math.min(node.w, node.h) * 0.5;
+        const subRadius = hostRadius * 0.2;
+        for (let i = 0; i < total; i++) {
+            const sub = node.attachedSubrunes[i];
+            const angle = (Math.PI * 2 / total) * i - Math.PI / 2;
+            const sx = node.x + node.w / 2 + Math.cos(angle) * (hostRadius + subRadius * 1.5);
+            const sy = node.y + node.h / 2 + Math.sin(angle) * (hostRadius * 0.85);
+            ctx.beginPath();
+            ctx.arc(sx, sy, subRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+            ctx.strokeStyle = sub.def.color;
+            ctx.lineWidth = 1.5 / this.viewport.scale;
+            ctx.stroke();
+            ctx.fillStyle = sub.def.color;
+            ctx.font = (7 / this.viewport.scale) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(sub.def.label.substring(0, 3), sx, sy);
+        }
+    }
 
     if (node.state.flash > 0) {
       const flashColor = lightBaseColor ? cssRgbWithAlpha(lightBaseColor, 0.12 + node.state.flash * 0.18) : ('rgba(251, 191, 36,' + (0.12 + node.state.flash * 0.18) + ')');
@@ -4858,7 +5014,8 @@ getPortPos(node, index, type) {
       'Память и счётчики',
       'Круготечные',
       'Детекторы',
-      'Мета-модификаторы',
+      'Сабруны-модификаторы',
+      'Руны-модификаторы',
       'Математика',
       'Сравнение',
       'Строки',
