@@ -11,7 +11,7 @@
 // Антикэш-загрузка: при новой сборке страница сама открывается с новым параметром версии.
 // Это не очищает кэш всего браузера, но заставляет браузер брать актуальную HTML-страницу.
 (function(){
-  const BUILD_ID = 'v20.7';
+  const BUILD_ID = 'v20.8';
   try {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(()=>{});
@@ -30,7 +30,7 @@
   } catch(_) {}
 })();
 </script>
-<title>Runology Engine v20.7 — Final Clean Build</title>
+<title>Runology Engine v20.8 — Final Clean Build</title>
 <style>
 :root {
   --bg: #05070b;
@@ -538,7 +538,7 @@ html, body { overscroll-behavior: none; touch-action: manipulation; }
 
 <body>
   <div id="mobile-bar">
-    <div class="mobile-title">ᚱ Runology Engine v20.7</div>
+    <div class="mobile-title">ᚱ Runology Engine v20.8</div>
     <div class="mobile-actions">
       <button id="mobile-library-toggle" onclick="engine.toggleMobilePanel('library')">📚 Руны</button>
       <button id="mobile-console-toggle" onclick="engine.toggleMobilePanel('console')">📟 Лог</button>
@@ -557,7 +557,8 @@ html, body { overscroll-behavior: none; touch-action: manipulation; }
       <b>Правила:</b><br>
       — эффекторы, счётчики и мощные руны принимают только <span class="badge">3</span><br>
       — операторы и значения выдают только <span class="badge">1</span><br>
-      — мостик обязателен между блоками, базовая задержка мостика 10 мс
+      — мостик обязателен между блоками, базовая задержка мостика 10 мс<br>
+      — мостик к сабруне считается крепёжным и идёт с задержкой 5 мс
     </div>
   </div>
 
@@ -1093,7 +1094,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_COMPLEX,
     desc: 'Сложнотечная: постепенное растрескивание материала',
-    effectText: 'Постепенное разрушение'
+    effectText: 'Постепенное разрушение',
+    maxSubrunes: 2
   },
   complex_audio_write: {
     label: 'слИнкриптор_звукозаписи',
@@ -1104,7 +1106,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_COMPLEX,
     desc: 'Сложнотечная: перевод звука в руническую информацию',
-    effectText: 'Запись звука в руническую информацию'
+    effectText: 'Запись звука в руническую информацию',
+    maxSubrunes: 1
   },
   complex_push: {
     label: 'слТолкание',
@@ -1115,7 +1118,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_COMPLEX,
     desc: 'Сложнотечная: удержание до 100 г',
-    effectText: 'Постоянное несильное отталкивание'
+    effectText: 'Постоянное несильное отталкивание',
+    maxSubrunes: 2
   },
   circle_complex: {
     label: 'кгКомплекс',
@@ -1213,7 +1217,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_COMPLEX,
     desc: 'Запретотечная: острая поверхностная боль',
-    effectText: 'Острая поверхностная боль'
+    effectText: 'Острая поверхностная боль',
+    maxSubrunes: 2
   },
   ban_weakness: {
     label: 'зпСлабость',
@@ -1224,7 +1229,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_COMPLEX,
     desc: 'Запретотечная: локальная мышечная слабость',
-    effectText: 'Небольшая мышечная слабость'
+    effectText: 'Небольшая мышечная слабость',
+    maxSubrunes: 3
   },
   sensor_light: {
     label: 'слСветодетектор',
@@ -1304,8 +1310,8 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово помечает последующий эффект как усиленный',
-    modScale: 'усиление'
+    desc: 'Малое усиление цепи: примерно повторяет сабруну и даёт эффект +25%, магию +40%, сохраняя цепочную механику.',
+    modScale: 'усиление +25%'
   },
   mod_scale_down: {
     label: 'миОслабление',
@@ -1315,8 +1321,8 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово помечает последующий эффект как ослабленный',
-    modScale: 'ослабление'
+    desc: 'Малое ослабление цепи: примерно повторяет сабруну и даёт эффект -30%, магию -40%, сохраняя цепочную механику.',
+    modScale: 'ослабление -30%'
   },
   mod_freq_up: {
     label: 'слЧастота+',
@@ -1326,8 +1332,8 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово помечает последующий эффект как высокочастотный',
-    modFrequency: 'повышенная частота'
+    desc: 'Повышение частоты цепи: повторяет базовый сабрунный сдвиг +15% и сохраняет дополнительные эффекты цепи.',
+    modFrequency: 'повышенная частота +15%'
   },
   mod_freq_down: {
     label: 'слЧастота-',
@@ -1337,8 +1343,8 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово помечает последующий эффект как низкочастотный',
-    modFrequency: 'пониженная частота'
+    desc: 'Понижение частоты цепи: повторяет базовый сабрунный сдвиг -15% и сохраняет дополнительные эффекты цепи.',
+    modFrequency: 'пониженная частота -15%'
   },
   dir_forward: {
     label: 'прВперёд',
@@ -1348,7 +1354,7 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта вперёд',
+    desc: 'Направляет последующий эффект вперёд, как прямотечный сабрунный аналог.',
     modDirection: 'вперёд'
   },
   dir_back: {
@@ -1359,7 +1365,7 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта назад',
+    desc: 'Направляет последующий эффект назад, как прямотечный сабрунный аналог.',
     modDirection: 'назад'
   },
   dir_up: {
@@ -1370,7 +1376,7 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта вверх',
+    desc: 'Направляет последующий эффект вверх, как прямотечный сабрунный аналог.',
     modDirection: 'вверх'
   },
   dir_down: {
@@ -1381,7 +1387,7 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта вниз',
+    desc: 'Направляет последующий эффект вниз, как прямотечный сабрунный аналог.',
     modDirection: 'вниз'
   },
   dir_left: {
@@ -1392,7 +1398,7 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта влево',
+    desc: 'Направляет последующий эффект влево, как прямотечный сабрунный аналог.',
     modDirection: 'влево'
   },
   dir_right: {
@@ -1403,20 +1409,20 @@ const RUNE_DB = {
     inputs: 1,
     outputs: 1,
     delay: SABRUNE_DELAY,
-    desc: 'Текстово задаёт направление эффекта вправо',
+    desc: 'Направляет последующий эффект вправо, как прямотечный сабрунный аналог.',
     modDirection: 'вправо'
   },
   // === САБРУНЫ-МОДИФИКАТОРЫ (прикрепляются к точкам эффекторов) ===
-    sub_scale_up:   { label: 'сабУсиление', color: '#f59e0b', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: эффект +25%, магия +40%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_scale_up' },
-    sub_scale_down: { label: 'сабОслабление', color: '#fcd34d', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: эффект -30%, магия -40%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_scale_down' },
-    sub_freq_up:    { label: 'сабЧастота+', color: '#38bdf8', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: частота +15%, магия +50%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_freq_up' },
-    sub_freq_down:  { label: 'сабЧастота-', color: '#0ea5e9', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: частота -15%, магия -20%. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_freq_down' },
-    sub_dir_forward:{ label: 'сабВперёд', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вперёд. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_forward' },
-    sub_dir_back:   { label: 'сабНазад', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление назад. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_back' },
-    sub_dir_up:     { label: 'сабВверх', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вверх. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_up' },
-    sub_dir_down:   { label: 'сабВниз', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вниз. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_down' },
-    sub_dir_left:   { label: 'сабВлево', color: '#fdba74', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление влево. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_left' },
-    sub_dir_right:  { label: 'сабВправо', color: '#fb7185', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 0, outputs: 0, delay: SABRUNE_DELAY, desc: 'Сабруна: направление вправо. Крепится к точке эффектора.', isSubrune: true, subruneRuleKey: 'sub_dir_right' }
+    sub_scale_up:   { label: 'сабУсиление', color: '#f59e0b', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: эффект +25%, магия +40%. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_scale_up' },
+    sub_scale_down: { label: 'сабОслабление', color: '#fcd34d', family: 'subrune_meta', type: 'sub_modifier_scale', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: эффект -30%, магия -40%. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_scale_down' },
+    sub_freq_up:    { label: 'сабЧастота+', color: '#38bdf8', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: частота +15%, магия +50%. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_freq_up' },
+    sub_freq_down:  { label: 'сабЧастота-', color: '#0ea5e9', family: 'subrune_meta', type: 'sub_modifier_frequency', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: частота -15%, магия -20%. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_freq_down' },
+    sub_dir_forward:{ label: 'сабВперёд', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление вперёд. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_forward' },
+    sub_dir_back:   { label: 'сабНазад', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление назад. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_back' },
+    sub_dir_up:     { label: 'сабВверх', color: '#f97316', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление вверх. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_up' },
+    sub_dir_down:   { label: 'сабВниз', color: '#fb923c', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление вниз. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_down' },
+    sub_dir_left:   { label: 'сабВлево', color: '#fdba74', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление влево. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_left' },
+    sub_dir_right:  { label: 'сабВправо', color: '#fb7185', family: 'subrune_meta', type: 'sub_modifier_direction', inputs: 1, outputs: 1, delay: 0, desc: 'Сабруна: направление вправо. Крепится к точке эффектора; задержка 5 мс живёт на мостике.', isSubrune: true, subruneRuleKey: 'sub_dir_right' }
 };
 
 const SUBRUNE_RULES = Object.freeze({
@@ -1434,6 +1440,26 @@ const SUBRUNE_RULES = Object.freeze({
 
 CATEGORY_MAP.subrune_meta = 'Сабруны-модификаторы';
 CATEGORY_MAP.effect_meta = 'Руны-модификаторы';
+
+function hostHasSubruneAttachmentPoints(node) {
+  if (!node || !node.def) return false;
+  if (node.def.supportsSubrunes === true) return true;
+  if (node.def.supportsSubrunes === false) return false;
+  const family = node.def.family;
+  if (family === 'effector_mono' || family === 'effector_miro') return false;
+  return family === 'effector_priamo' || family === 'effector_complex' || family === 'effector_forbidden';
+}
+
+function isSubruneCompatibleHost(hostNode, rule) {
+  if (!hostHasSubruneAttachmentPoints(hostNode)) return false;
+  const family = hostNode.def.family;
+  const type = hostNode.def.type;
+  if (rule.allowedFamilies.includes(family) || rule.allowedFamilies.includes(type)) return true;
+  // Сохраняем уже добавленные расширенные эффекты для сложно- и запретотечных эффекторов,
+  // но не разрешаем точки прикрепления моно- и миротечным рунам.
+  if (rule.allowedFamilies.includes('effector') && (family === 'effector_complex' || family === 'effector_forbidden')) return true;
+  return false;
+}
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -1752,6 +1778,16 @@ function drawBar(ctx, x, y, w, h, ratio, fillFromTop, color) {
   ctx.restore();
 }
 
+function getNodePortPosition(node, index, type) {
+  if (!node || !node.def) return { x: 0, y: 0 };
+  if (node.def.isSubrune) {
+    return { x: node.x + node.w, y: node.y + node.h * 0.5 };
+  }
+  const count = type === 'in' ? node.def.inputs : node.def.outputs;
+  const y = node.y + node.h * (index + 1) / Math.max(1, count + 1);
+  return { x: type === 'in' ? node.x : node.x + node.w, y };
+}
+
 class Node {
   constructor(id, type, x, y) {
     this.id = id;
@@ -1825,7 +1861,6 @@ class Node {
     this.state.effectColor = baseSpectrum ? baseSpectrum.colorCss : null;
     this.state.frequencyShiftPct = baseSpectrum ? (baseSpectrum.totalShift * 100).toFixed(1) : '0.0';
     this.data.value = null;
-    this.attachedSubrunes = [];
     this.subruneState = { scale: 1, magicCost: 1, freqShift: 0, direction: null };
     this.data.lastUpdatedTime = -1;
     this.memory.value = 0;
@@ -1908,7 +1943,7 @@ constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     this.isAttachment = opts?.isAttachment || false;
     
     if (this.isAttachment) {
-        this.delay = SABRUNE_DELAY; // 5 мс по документу
+        this.delay = SABRUNE_DELAY; // 5 мс только для мостиков, связанных с сабрунами
     }
 
     this.activeSignal = SIG.NONE;
@@ -1916,14 +1951,8 @@ constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     this.lastUsedAt = -1;
     this.lastSourceTag = null;
 
-    const start = {
-      x: fromNode.x + fromNode.w,
-      y: fromNode.y + fromNode.h * (fromPort + 1) / Math.max(1, (fromNode.def.outputs + 1))
-    };
-    const end = {
-      x: toNode.x,
-      y: toNode.y + toNode.h * (toPort + 1) / Math.max(1, (toNode.def.inputs + 1))
-    };
+    const start = getNodePortPosition(fromNode, fromPort, 'out');
+    const end = getNodePortPosition(toNode, toPort, 'in');
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -1984,14 +2013,8 @@ class SignalParticle {
     const p = (simTime - this.startTime) / this.travelTime;
     const from = this.connection.fromNode;
     const to = this.connection.toNode;
-    const start = {
-      x: from.x + from.w,
-      y: from.y + from.h * (this.connection.fromPort + 1) / (from.def.outputs + 1)
-    };
-    const end = {
-      x: to.x,
-      y: to.y + to.h * (this.connection.toPort + 1) / (to.def.inputs + 1)
-    };
+    const start = getNodePortPosition(from, this.connection.fromPort, 'out');
+    const end = getNodePortPosition(to, this.connection.toPort, 'in');
     const cp = this.connection.bridge.cp;
     const cp1 = { x: start.x + (cp.x - start.x) * 0.5, y: start.y };
     const cp2 = { x: end.x - (end.x - cp.x) * 0.5, y: end.y };
@@ -2294,6 +2317,7 @@ class Engine {
 
   getPortRole(node, portIndex, kind) {
     const t = node?.def?.type || '';
+    if (node?.def?.isSubrune) return 'attachment';
     if (isCircleSimple(node)) {
       if (kind === 'in') return (portIndex === 0 || portIndex === 1) ? 'strong' : 'data';
       return (portIndex === 0 || portIndex === 1) ? 'strong' : 'data';
@@ -2311,6 +2335,7 @@ class Engine {
 
   describePort(node, portIndex, kind) {
     const t = node?.def?.type || '';
+    if (node?.def?.isSubrune) return 'Единый квадратный порт сабруны';
     if (isCircleSimple(node)) {
       if (kind === 'in') {
         if (portIndex === 0) return 'Левый верхний: WEAK/STRONG читает material и проходит вправо';
@@ -2983,39 +3008,88 @@ class Engine {
 
 createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
     if (!fromNode || !toNode) return null;
-    
-    // 1. Определяем, является ли соединение прикреплением сабруны
-    const isSubruneConnect = fromNode.def.isSubrune || toNode.def.isSubrune;
+
+    const isSubruneConnect = !!(fromNode.def.isSubrune || toNode.def.isSubrune);
     let hostNode = null, subNode = null;
 
     if (isSubruneConnect) {
+        if (fromNode.def.isSubrune && toNode.def.isSubrune) {
+            if (!opts.silent) this.log('🚫 Сабруны нельзя крепить друг к другу.', 'warn');
+            return null;
+        }
+
         hostNode = fromNode.def.isSubrune ? toNode : fromNode;
-        subNode  = fromNode.def.isSubrune ? fromNode : toNode;
-        
+        subNode = fromNode.def.isSubrune ? fromNode : toNode;
+
         const rule = SUBRUNE_RULES[subNode.def.subruneRuleKey];
         if (!rule) {
             if (!opts.silent) this.log('🚫 У ' + subNode.label + ' нет правил прикрепления.', 'warn');
             return null;
         }
 
-        // Лимит точек (по умолчанию 3)
+        if (fromNode.def.isSubrune) {
+            if (fromPort < 0 || fromPort >= (subNode.def?.outputs || 0)) {
+                if (!opts.silent) this.log('🚫 У сабруны ' + subNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
+                return null;
+            }
+            if (toPort < 0 || toPort >= (hostNode.def?.inputs || 0)) {
+                if (!opts.silent) this.log('🚫 У блока ' + hostNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
+                return null;
+            }
+        } else {
+            if (fromPort < 0 || fromPort >= (hostNode.def?.outputs || 0)) {
+                if (!opts.silent) this.log('🚫 У блока ' + hostNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
+                return null;
+            }
+            if (toPort < 0 || toPort >= (subNode.def?.inputs || 0)) {
+                if (!opts.silent) this.log('🚫 У сабруны ' + subNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
+                return null;
+            }
+        }
+
+        const same = this.connections.find(c => c.fromNode === fromNode && c.fromPort === fromPort && c.toNode === toNode && c.toPort === toPort);
+        if (same) {
+            if (!opts.silent) this.log('ℹ️ Такой мостик уже существует.', 'sys');
+            return same;
+        }
+
+        const alreadyAttachedElsewhere = this.connections.find(c => c.bridge && c.bridge.isAttachment && (c.fromNode === subNode || c.toNode === subNode));
+        if (alreadyAttachedElsewhere) {
+            const existingHost = alreadyAttachedElsewhere.fromNode === subNode ? alreadyAttachedElsewhere.toNode : alreadyAttachedElsewhere.fromNode;
+            if (existingHost !== hostNode) {
+                if (!opts.silent) this.log('🚫 Сабруна ' + subNode.label + ' уже прикреплена к ' + existingHost.label + '.', 'warn');
+                return null;
+            }
+        }
+
         const maxSub = hostNode.def.maxSubrunes || 3;
-        if (hostNode.attachedSubrunes.length >= maxSub) {
+        const hostAttachmentCount = this.connections.filter(c => c.bridge && c.bridge.isAttachment && (c.fromNode === hostNode || c.toNode === hostNode)).length;
+        if (!hostNode.attachedSubrunes.includes(subNode) && hostAttachmentCount >= maxSub) {
             if (!opts.silent) this.log('🚫 Лимит точек крепления сабрун на ' + hostNode.label + ' достигнут.', 'warn');
             return null;
         }
 
-        // Проверка совместимости
-        const isAllowed = rule.allowedFamilies.includes(hostNode.def.family) || rule.allowedFamilies.includes(hostNode.def.type);
+        const isAllowed = isSubruneCompatibleHost(hostNode, rule);
         if (!isAllowed) {
             if (!opts.silent) this.log('🚫 Сабруна ' + subNode.label + ' несовместима с ' + hostNode.label + ' (' + hostNode.def.family + ').', 'warn');
             return null;
         }
-        
-        // Помечаем как прикрепление (чтобы Bridge поставил 5мс)
+
+        const outCount = this.getPortConnectionCount(fromNode, fromPort, 'out');
+        const outCap = this.getPortCapacity(fromNode, fromPort, 'out');
+        if (outCount >= outCap) {
+            if (!opts.silent) this.log('🚫 Выходной порт уже заполнен.', 'warn');
+            return null;
+        }
+        const inCount = this.getPortConnectionCount(toNode, toPort, 'in');
+        const inCap = this.getPortCapacity(toNode, toPort, 'in');
+        if (inCount >= inCap) {
+            if (!opts.silent) this.log('🚫 Входной порт уже заполнен.', 'warn');
+            return null;
+        }
+
         opts = { ...opts, isAttachment: true };
     } else {
-        // Стандартные проверки портов только для обычных цепей
         if (fromPort < 0 || fromPort >= (fromNode.def?.outputs || 0)) {
             if (!opts.silent) this.log('🚫 У блока ' + fromNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
             return null;
@@ -3052,8 +3126,7 @@ createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
     this.bridges.push(bridge);
     this.connections.push(connection);
 
-    // Регистрируем сабруну у хоста
-    if (opts.isAttachment && hostNode && subNode) {
+    if (opts.isAttachment && hostNode && subNode && !hostNode.attachedSubrunes.includes(subNode)) {
         hostNode.attachedSubrunes.push(subNode);
     }
     return connection;
@@ -3657,8 +3730,35 @@ this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effTex
     return true;
   }
 
-  primeDataNodes(atTime = 0) {
+  collectConnectedNodeIds(seedNodes) {
+    const seeds = Array.isArray(seedNodes) ? seedNodes.filter(Boolean) : [];
+    if (!seeds.length) return new Set(this.nodes.map(node => node.id));
+    const visited = new Set();
+    const queue = [];
+    for (const node of seeds) {
+      if (!node || visited.has(node.id)) continue;
+      visited.add(node.id);
+      queue.push(node);
+    }
+    while (queue.length) {
+      const current = queue.shift();
+      for (const conn of this.connections) {
+        let next = null;
+        if (conn.fromNode === current) next = conn.toNode;
+        else if (conn.toNode === current) next = conn.fromNode;
+        if (next && !visited.has(next.id)) {
+          visited.add(next.id);
+          queue.push(next);
+        }
+      }
+    }
+    return visited;
+  }
+
+  primeDataNodes(atTime = 0, seedNodes = null) {
+    const allowedIds = this.collectConnectedNodeIds(seedNodes);
     for (const node of this.nodes) {
+      if (!allowedIds.has(node.id)) continue;
       if (node.def.type === 'val_number' || node.def.type === 'val_text' || node.def.type === 'detector_toggle') {
         this.eventQueue.push({
           kind: 'prime',
@@ -3671,17 +3771,25 @@ this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effTex
 
   startSourcePulse(sourceNode, atTime = null) {
     if (!sourceNode || !sourceNode.def || !isAnySourceType(sourceNode.def.type)) return;
+    const shouldFreshRestart = this.initialized
+      && !this.simulationRunning
+      && this.eventQueue.length === 0
+      && !this.hasActiveSelfTimedStates()
+      && !isBlinkSourceType(sourceNode.def.type);
+    const shouldScopedPrime = !this.initialized || shouldFreshRestart || (atTime === null && !this.simulationRunning && this.eventQueue.length === 0);
     sourceNode.runtimeSourcePulseCounter = (sourceNode.runtimeSourcePulseCounter || 0) + 1;
     const pulseIndex = sourceNode.runtimeSourcePulseCounter;
     const prefix = isStrongSourceLike(sourceNode.def.type) ? 'М' : 'СМ';
     const sourceTag = sourceNode.sourceTag || (prefix + sourceNode.id);
     const sourceMeta = buildPrimaryMeta(sourceNode, sourceTag, pulseIndex);
     sourceNode.state.pendingSourceMeta = this.cloneMeta(sourceMeta);
-    const time = atTime === null ? (this.initialized ? this.simTime : 0) : atTime;
-    if (!this.initialized) {
+    const time = atTime === null ? ((this.initialized && !shouldFreshRestart) ? this.simTime : 0) : atTime;
+    if (!this.initialized || shouldFreshRestart) {
       this.clearSimulationState();
       this.initialized = true;
-      this.primeDataNodes(time);
+    }
+    if (shouldScopedPrime) {
+      this.primeDataNodes(time, [sourceNode]);
     }
     this.lastStartedSourceId = sourceNode.id;
     this.eventQueue.push({ kind: 'source', time, nodeId: sourceNode.id, sourceTag, sourceNodeId: sourceNode.id, sourceMeta: this.cloneMeta(sourceMeta) });
@@ -3742,7 +3850,7 @@ this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effTex
       this.clearSimulationState();
       this.initialized = true;
     }
-    this.primeDataNodes(time);
+    this.primeDataNodes(time, sources);
     for (const source of sources) {
       this.startSourcePulse(source, time);
     }
@@ -3869,6 +3977,9 @@ this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effTex
 
 getPortPos(node, index, type) {
     const t = node.def.type;
+    if (node.def.isSubrune) {
+      return { x: node.x + node.w, y: node.y + node.h * 0.5 };
+    }
     if (isCircleSimple(node)) {
       const g = this.getCircleProcessorGeom(node);
       const inset = 6 / this.viewport.scale;
@@ -3894,37 +4005,23 @@ getPortPos(node, index, type) {
     return { x: type === 'in' ? node.x : node.x + node.w, y };
   }
 
-  getPortAt(x, y) {
+  getPortAt(x, y, preferType = null) {
     const threshold = (this.isMobile ? 24 : 18) / this.viewport.scale;
     let best = null;
     let bestDist = Infinity;
     for (const node of this.nodes) {
-        // Если это сабруна, разрешаем цепляться за её центр
-        if (node.def.isSubrune) {
-            const cx = node.x + node.w / 2;
-            const cy = node.y + node.h / 2;
-            const d = Math.hypot(x - cx, y - cy);
-            if (d < threshold * 1.5 && d < bestDist) {
-                best = { node, index: 0, type: 'out' };
-                bestDist = d;
-            }
-            continue; 
-        }
-        
-        for (let i = 0; i < node.def.inputs; i++) {
-            const p = this.getPortPos(node, i, 'in');
-            const d = Math.hypot(x - p.x, y - p.y);
-            if (d < threshold && d < bestDist) {
-                best = { node, index: i, type: 'in' };
-                bestDist = d;
-            }
-        }
-        for (let i = 0; i < node.def.outputs; i++) {
-            const p = this.getPortPos(node, i, 'out');
-            const d = Math.hypot(x - p.x, y - p.y);
-            if (d < threshold && d < bestDist) {
-                best = { node, index: i, type: 'out' };
-                bestDist = d;
+        const scanKinds = (node.def.isSubrune && preferType)
+          ? [preferType, preferType === 'out' ? 'in' : 'out']
+          : ['in', 'out'];
+        for (const kind of scanKinds) {
+            const count = kind === 'in' ? node.def.inputs : node.def.outputs;
+            for (let i = 0; i < count; i++) {
+                const p = this.getPortPos(node, i, kind);
+                const d = Math.hypot(x - p.x, y - p.y);
+                if (d < threshold && d < bestDist) {
+                    best = { node, index: i, type: kind };
+                    bestDist = d;
+                }
             }
         }
     }
@@ -4167,8 +4264,9 @@ getPortPos(node, index, type) {
             const angle = (Math.PI * 2 / total) * i - Math.PI / 2;
             const sx = node.x + node.w / 2 + Math.cos(angle) * (hostRadius + subRadius * 1.5);
             const sy = node.y + node.h / 2 + Math.sin(angle) * (hostRadius * 0.85);
+            const side = subRadius * 2.05;
             ctx.beginPath();
-            ctx.arc(sx, sy, subRadius, 0, Math.PI * 2);
+            ctx.roundRect(sx - side / 2, sy - side / 2, side, side, 4 / this.viewport.scale);
             ctx.fillStyle = '#0f172a';
             ctx.fill();
             ctx.strokeStyle = sub.def.color;
@@ -4514,39 +4612,49 @@ getPortPos(node, index, type) {
     const radius = (this.isMobile ? 8.6 : 7.4) / this.viewport.scale;
     const ring = (this.isMobile ? 14 : 12) / this.viewport.scale;
 
-    for (let i = 0; i < node.def.inputs; i++) {
-      const p = this.getPortPos(node, i, 'in');
-      const input = node.inputs[i] || { signal: SIG.NONE };
-
+    const drawRoundPort = (p, strokeStyle, fillStyle = '#020617') => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, ring, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(148,163,184,0.08)';
       ctx.fill();
-
       ctx.beginPath();
       ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#020617';
+      ctx.fillStyle = fillStyle;
       ctx.fill();
-      ctx.strokeStyle = input.signal === SIG.NONE ? '#475569' : this.getSignalColor(input.signal);
+      ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = 2.2 / this.viewport.scale;
       ctx.stroke();
+    };
+
+    const drawSquarePort = (p, strokeStyle, fillStyle = '#020617') => {
+      const ringSize = ring * 1.95;
+      const size = radius * 1.95;
+      ctx.fillStyle = 'rgba(148,163,184,0.08)';
+      ctx.fillRect(p.x - ringSize / 2, p.y - ringSize / 2, ringSize, ringSize);
+      ctx.fillStyle = fillStyle;
+      ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = 2.2 / this.viewport.scale;
+      ctx.strokeRect(p.x - size / 2, p.y - size / 2, size, size);
+    };
+
+    if (node.def.isSubrune) {
+      const p = this.getPortPos(node, 0, 'out');
+      const input = node.inputs[0] || { signal: SIG.NONE };
+      const stroke = input.signal === SIG.NONE ? node.def.color : this.getSignalColor(input.signal);
+      drawSquarePort(p, stroke, '#020617');
+      return;
+    }
+
+    for (let i = 0; i < node.def.inputs; i++) {
+      const p = this.getPortPos(node, i, 'in');
+      const input = node.inputs[i] || { signal: SIG.NONE };
+      drawRoundPort(p, input.signal === SIG.NONE ? '#475569' : this.getSignalColor(input.signal));
     }
 
     for (let i = 0; i < node.def.outputs; i++) {
       const p = this.getPortPos(node, i, 'out');
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, ring, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(148,163,184,0.08)';
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = '#020617';
-      ctx.fill();
-      ctx.strokeStyle = node.def.color;
-      ctx.lineWidth = 2.2 / this.viewport.scale;
-      ctx.stroke();
+      drawRoundPort(p, node.def.color);
     }
   }
 
@@ -4731,7 +4839,7 @@ getPortPos(node, index, type) {
         return;
       }
 
-      const port = this.getPortAt(world.x, world.y);
+      const port = this.getPortAt(world.x, world.y, 'out');
       if (port) {
         connectStart = port;
         updateConnectPreview(world);
@@ -4883,7 +4991,7 @@ getPortPos(node, index, type) {
       const { sx, sy } = screenPoint(e);
       const world = this.screenToWorld(sx, sy);
       if (connectStart) {
-        const target = this.getPortAt(world.x, world.y);
+        const target = this.getPortAt(world.x, world.y, connectStart.type === 'out' ? 'in' : 'out');
         if (target && target.node !== connectStart.node && target.type !== connectStart.type) {
           if (connectStart.type === 'out') {
             this.createConnection(connectStart.node, connectStart.index, target.node, target.index);
