@@ -1038,7 +1038,8 @@ const RUNE_DB = {
     outputs: 1,
     delay: EFFECTOR_DELAY_FAST,
     desc: 'Светильник: принимает только STRONG слева и показывает прохождение сигнала.',
-    effectText: 'Ярко-жёлтое свечение'
+    effectText: 'Ярко-жёлтое свечение',
+    maxSubrunes: 1 
   },
   pr_flash: {
     label: 'прВспышка',
@@ -1779,13 +1780,36 @@ function drawBar(ctx, x, y, w, h, ratio, fillFromTop, color) {
 }
 
 function getNodePortPosition(node, index, type) {
-  if (!node || !node.def) return { x: 0, y: 0 };
-  if (node.def.isSubrune) {
-    return { x: node.x + node.w, y: node.y + node.h * 0.5 };
-  }
-  const count = type === 'in' ? node.def.inputs : node.def.outputs;
-  const y = node.y + node.h * (index + 1) / Math.max(1, count + 1);
-  return { x: type === 'in' ? node.x : node.x + node.w, y };
+    if (!node || !node.def) return { x: 0, y: 0 };
+    
+    // Логика для точек крепления сабрун (отрицательные индексы)
+    if (index < 0) {
+        const subIndex = -(index + 1);
+        const count = node.def.maxSubrunes || 0;
+        if (subIndex >= count) return { x: node.x, y: node.y };
+        const scale = window.engine ? window.engine.viewport.scale : 1;
+        const nTop = Math.ceil(count / 2);
+        const nBot = count - nTop;
+        const cx = node.x + node.w / 2;
+        const topY = node.y - 10 / scale;
+        const botY = node.y + node.h + 10 / scale;
+        const spacing = 20 / scale;
+        const isTop = (subIndex % 2 === 0);
+        const k = Math.floor(subIndex / 2);
+        let startX;
+        if (isTop) startX = cx - ((nTop - 1) * spacing) / 2;
+        else startX = cx - ((nBot - 1) * spacing) / 2;
+        const x = startX + k * spacing;
+        const y = isTop ? topY : botY;
+        return { x, y };
+    }
+
+    if (node.def.isSubrune) {
+        return { x: node.x + node.w, y: node.y + node.h * 0.5 };
+    }
+    const count = type === 'in' ? node.def.inputs : node.def.outputs;
+    const y = node.y + node.h * (index + 1) / Math.max(1, count + 1);
+    return { x: type === 'in' ? node.x : node.x + node.w, y };
 }
 
 class Node {
@@ -1931,6 +1955,23 @@ class Node {
   }
 }
 
+function getSubruneAttachmentPos(node, index) {
+    const count = node.def.maxSubrunes || 0;
+    if (count === 0) return { x: node.x, y: node.y + node.h / 2 };
+    const nTop = Math.ceil(count / 2);
+    const nBot = count - nTop;
+    const cx = node.x + node.w / 2;
+    const topY = node.y - 10;
+    const botY = node.y + node.h + 10;
+    const spacing = 20;
+    const isTop = (index % 2 === 0);
+    const k = Math.floor(index / 2);
+    let startX;
+    if (isTop) startX = cx - ((nTop - 1) * spacing) / 2;
+    else startX = cx - ((nBot - 1) * spacing) / 2;
+    return { x: startX + k * spacing, y: isTop ? topY : botY };
+}
+
 class Bridge {
 constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     this.id = id;
@@ -1938,21 +1979,33 @@ constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     this.b = toNode;
     this.fromPort = fromPort;
     this.toPort = toPort;
-    
     this.delay = DEFAULT_BRIDGE_DELAY;
-    this.isAttachment = opts?.isAttachment || false;
-    
+    this.isAttachment = !!opts?.isAttachment;
     if (this.isAttachment) {
-        this.delay = SABRUNE_DELAY; // 5 мс только для мостиков, связанных с сабрунами
+        this.delay = SABRUNE_DELAY;
     }
-
     this.activeSignal = SIG.NONE;
     this.glow = 0;
     this.lastUsedAt = -1;
     this.lastSourceTag = null;
 
-    const start = getNodePortPosition(fromNode, fromPort, 'out');
-    const end = getNodePortPosition(toNode, toPort, 'in');
+    // Явно вычисляем точки начала и конца
+    const scale = window.engine ? window.engine.viewport.scale : 1;
+    let start, end;
+
+    if (this.isAttachment) {
+        const host = fromNode.def.isSubrune ? toNode : fromNode;
+        const sub = fromNode.def.isSubrune ? fromNode : toNode;
+        const idx = opts?.attachmentIndex ?? 0;
+        const attachPos = getSubruneAttachmentPos(host, idx, opts?.attachmentScale);
+        
+        start = fromNode.def.isSubrune ? getNodePortPosition(fromNode, fromPort, 'out') : attachPos;
+        end = toNode.def.isSubrune ? getNodePortPosition(toNode, toPort, 'in') : attachPos;
+    } else {
+        start = getNodePortPosition(fromNode, fromPort, 'out');
+        end = getNodePortPosition(toNode, toPort, 'in');
+    }
+
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -1960,18 +2013,17 @@ constructor(id, fromNode, fromPort, toNode, toPort, opts = {}) {
     const ny = dx / dist;
     const sign = ((fromNode.id + toNode.id) % 2 === 0) ? 1 : -1;
     const bend = Math.min(170, Math.max(34, dist * 0.16 + Math.abs(dy) * 0.08)) * sign;
-
     this.wrapSign = sign;
     this.handleTs = [0.22, 0.5, 0.78];
     this.cps = this.handleTs.map((t, idx) => {
-      const weight = idx === 1 ? 1.12 : 0.72;
-      return {
-        x: start.x + dx * t + nx * bend * weight,
-        y: start.y + dy * t + ny * bend * weight
-      };
+        const weight = idx === 1 ? 1.12 : 0.72;
+        return {
+            x: start.x + dx * t + nx * bend * weight,
+            y: start.y + dy * t + ny * bend * weight
+        };
     });
     this.cp = this.cps[1];
-  }
+}
 
   reset() {
     this.activeSignal = SIG.NONE;
@@ -2013,8 +2065,18 @@ class SignalParticle {
     const p = (simTime - this.startTime) / this.travelTime;
     const from = this.connection.fromNode;
     const to = this.connection.toNode;
-    const start = getNodePortPosition(from, this.connection.fromPort, 'out');
-    const end = getNodePortPosition(to, this.connection.toPort, 'in');
+    const isAttach = this.connection.bridge?.isAttachment || false;
+let start, end;
+if (isAttach) {
+    const host = from.def.isSubrune ? to : from;
+    const idx = this.connection.bridge?.attachmentIndex ?? 0;
+    const attachPos = getSubruneAttachmentPos(host, idx);
+    start = from.def.isSubrune ? getNodePortPosition(from, this.connection.fromPort, 'out') : attachPos;
+    end = to.def.isSubrune ? getNodePortPosition(to, this.connection.toPort, 'in') : attachPos;
+} else {
+    start = getNodePortPosition(from, this.connection.fromPort, 'out');
+    end = getNodePortPosition(to, this.connection.toPort, 'in');
+}
     const cp = this.connection.bridge.cp;
     const cp1 = { x: start.x + (cp.x - start.x) * 0.5, y: start.y };
     const cp2 = { x: end.x - (end.x - cp.x) * 0.5, y: end.y };
@@ -2030,6 +2092,70 @@ class SignalParticle {
       Math.pow(t, 3) * end.y;
     return { x, y, progress: p };
   }
+}
+
+function drawAttachmentPoints(ctx, node, scale) {
+    if (!node || !node.def) return;
+    const count = node.def.maxSubrunes || 0;
+    if (count <= 0) return;
+
+    const r = 4.5 / scale;
+    const spacing = 20 / scale; // Расстояние между точками на одной стороне
+    
+    // Распределяем точки: четные индексы (0, 2...) сверху, нечетные (1, 3...) снизу
+    // Это дает симметричное распределение при любом количестве точек
+    const nTop = Math.ceil(count / 2);
+    const nBot = count - nTop;
+
+    const cx = node.x + node.w / 2;
+    const topY = node.y - 10 / scale;
+    const botY = node.y + node.h + 10 / scale;
+
+    for (let i = 0; i < count; i++) {
+        const isTop = (i % 2 === 0);
+        const k = Math.floor(i / 2); // Индекс точки на своей стороне (0, 1...)
+
+        // Вычисляем X, чтобы центрировать группу точек на стороне
+        let startX;
+        if (isTop) {
+            startX = cx - ((nTop - 1) * spacing) / 2;
+        } else {
+            startX = cx - ((nBot - 1) * spacing) / 2;
+        }
+        
+        const x = startX + k * spacing;
+        const y = isTop ? topY : botY;
+        
+        const isOccupied = node.attachedSubrunes && node.attachedSubrunes.length > i;
+
+        // Линия связи с руной
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, isTop ? node.y : node.y + node.h);
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+        ctx.lineWidth = 1.2 / scale;
+        ctx.setLineDash([3 / scale, 2 / scale]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Сама точка (кружок)
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#020617';
+        ctx.fill();
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5 / scale;
+        ctx.stroke();
+        
+        // Если точка занята сабруной — подсвечиваем
+        if (isOccupied) {
+            ctx.beginPath();
+            ctx.arc(x, y, r + 2.5/scale, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+            ctx.lineWidth = 1.5 / scale;
+            ctx.stroke();
+        }
+    }
 }
 
 class Engine {
@@ -2334,21 +2460,25 @@ class Engine {
   }
 
   describePort(node, portIndex, kind) {
+    // Обработка точек крепления
+    if (portIndex < 0) return `Точка крепления ${-(portIndex + 1)}`;
+    
     const t = node?.def?.type || '';
+    
     if (node?.def?.isSubrune) return 'Единый квадратный порт сабруны';
     if (isCircleSimple(node)) {
-      if (kind === 'in') {
-        if (portIndex === 0) return 'Левый верхний: WEAK/STRONG читает material и проходит вправо';
-        if (portIndex === 1) return 'Левый нижний: WEAK/STRONG читает virtual и проходит вправо';
-        if (portIndex === 2) return 'Верхний левый: первый DATA записывает material';
-        if (portIndex === 3) return 'Верхний правый: DATA пишет virtual';
-      } else {
-        if (portIndex === 0) return 'Правый верхний: проход WEAK/STRONG material-линии';
-        if (portIndex === 1) return 'Правый нижний: проход WEAK/STRONG virtual-линии';
-        if (portIndex === 2) return 'Нижний левый: DATA material при чтении';
-        if (portIndex === 3) return 'Нижний правый: DATA virtual при чтении';
-      }
-      return '';
+        if (kind === 'in') {
+            if (portIndex === 0) return 'Левый верхний: WEAK/STRONG читает material и проходит вправо';
+            if (portIndex === 1) return 'Левый нижний: WEAK/STRONG читает virtual и проходит вправо';
+            if (portIndex === 2) return 'Верхний левый: первый DATA записывает material';
+            if (portIndex === 3) return 'Верхний правый: DATA пишет virtual';
+        } else {
+            if (portIndex === 0) return 'Правый верхний: проход WEAK/STRONG material-линии';
+            if (portIndex === 1) return 'Правый нижний: проход WEAK/STRONG virtual-линии';
+            if (portIndex === 2) return 'Нижний левый: DATA material при чтении';
+            if (portIndex === 3) return 'Нижний правый: DATA virtual при чтении';
+        }
+        return '';
     }
     if (t === 'effector_light_rgb') return kind === 'in' ? 'Силовой вход' : 'Выход';
     if (t === 'logic_if' || t === 'logic_not') return kind === 'in' ? (portIndex === 0 ? 'Силовой вход' : 'Вход условия DATA') : 'Выход';
@@ -2374,34 +2504,46 @@ class Engine {
     return available[0];
   }
 
-  getQuickConnectTargetOptions(fromNode, toNode) {
-    const options = [];
-    if (!fromNode || !toNode || fromNode === toNode) return options;
-    if (!fromNode.def || fromNode.def.outputs <= 0 || !toNode.def || toNode.def.inputs <= 0) return options;
-    for (let toPort = 0; toPort < toNode.def.inputs; toPort++) {
-      const inCount = this.getPortConnectionCount(toNode, toPort, 'in');
-      const inCap = this.getPortCapacity(toNode, toPort, 'in');
-      if (inCount >= inCap) continue;
-      const fromPort = this.pickSourcePortForTarget(fromNode, toNode, toPort);
-      if (fromPort < 0) continue;
-      const outCount = this.getPortConnectionCount(fromNode, fromPort, 'out');
-      const outCap = this.getPortCapacity(fromNode, fromPort, 'out');
-      if (outCount >= outCap) continue;
-      options.push({
-        fromPort,
-        toPort,
-        label: this.describePort(toNode, toPort, 'in'),
-        meta: this.describePort(fromNode, fromPort, 'out') + ' → ' + this.describePort(toNode, toPort, 'in') + ' • занято ' + inCount + '/' + inCap
-      });
+      getQuickConnectTargetOptions(fromNode, toNode) {
+        const options = [];
+        if (!fromNode || !toNode || fromNode === toNode) return options;
+
+        // 1. Если соединяем сабруну с хостом -> показываем только точки крепления
+        if (fromNode.def.isSubrune && !toNode.def.isSubrune && toNode.def.maxSubrunes > 0) {
+            const rule = SUBRUNE_RULES[fromNode.def.subruneRuleKey];
+            if (rule && isSubruneCompatibleHost(toNode, rule)) {
+                const occupied = new Set(this.connections
+                    .filter(c => c.bridge?.isAttachment && (c.fromNode === toNode || c.toNode === toNode))
+                    .map(c => c.toPort < 0 ? -(c.toPort + 1) : -1));
+                for (let i = 0; i < toNode.def.maxSubrunes; i++) {
+                    if (!occupied.has(i)) {
+                        options.push({
+                            fromPort: 0,
+                            toPort: -(i + 1),
+                            label: `Точка крепления #${i + 1}`,
+                            meta: 'Слот сабруны (свободно)'
+                        });
+                    }
+                }
+                return options; // Возвращаем ТОЛЬКО слоты для сабрун
+            }
+        }
+
+        // 2. Стандартная логика для обычных портов
+        for (let toPort = 0; toPort < toNode.def.inputs; toPort++) {
+            if (this.getPortConnectionCount(toNode, toPort, 'in') >= this.getPortCapacity(toNode, toPort, 'in')) continue;
+            const fromPort = this.pickSourcePortForTarget(fromNode, toNode, toPort);
+            if (fromPort < 0) continue;
+            if (this.getPortConnectionCount(fromNode, fromPort, 'out') >= this.getPortCapacity(fromNode, fromPort, 'out')) continue;
+            options.push({
+                fromPort,
+                toPort,
+                label: this.describePort(toNode, toPort, 'in'),
+                meta: this.describePort(fromNode, fromPort, 'out') + ' → ' + this.describePort(toNode, toPort, 'in')
+            });
+        }
+        return options.filter((opt, idx, self) => idx === self.findIndex(o => o.fromPort === opt.fromPort && o.toPort === opt.toPort));
     }
-    const seen = new Set();
-    return options.filter(opt => {
-      const key = opt.fromPort + ':' + opt.toPort;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
 
   describeNodeCompact(nodeId) {
     const node = this.nodes.find(n => n.id === nodeId);
@@ -3006,10 +3148,16 @@ class Engine {
     }
   }
 
-createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
+    createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
     if (!fromNode || !toNode) return null;
 
-    const isSubruneConnect = !!(fromNode.def.isSubrune || toNode.def.isSubrune);
+    // Поддержка отрицательных индексов для точек крепления сабрун
+    let attachmentIndex = -1;
+    if (toPort < 0) {
+        attachmentIndex = -(toPort + 1);
+    }
+
+    const isSubruneConnect = fromNode.def.isSubrune || toNode.def.isSubrune || attachmentIndex >= 0;
     let hostNode = null, subNode = null;
 
     if (isSubruneConnect) {
@@ -3017,79 +3165,36 @@ createConnection(fromNode, fromPort, toNode, toPort, opts = {}) {
             if (!opts.silent) this.log('🚫 Сабруны нельзя крепить друг к другу.', 'warn');
             return null;
         }
-
         hostNode = fromNode.def.isSubrune ? toNode : fromNode;
         subNode = fromNode.def.isSubrune ? fromNode : toNode;
+
+        // Если индекс не передан явно (<0), ищем первый свободный слот
+        if (attachmentIndex < 0) {
+            const occupied = new Set(this.connections
+                .filter(c => c.bridge?.isAttachment && (c.fromNode === hostNode || c.toNode === hostNode))
+                .map(c => c.toPort < 0 ? -(c.toPort + 1) : -1));
+            for (let i = 0; i < (hostNode.def.maxSubrunes || 3); i++) {
+                if (!occupied.has(i)) { attachmentIndex = i; break; }
+            }
+        }
+
+        if (attachmentIndex < 0 || attachmentIndex >= (hostNode.def.maxSubrunes || 3)) {
+            if (!opts.silent) this.log('🚫 Все точки крепления сабрун на ' + hostNode.label + ' заняты.', 'warn');
+            return null;
+        }
 
         const rule = SUBRUNE_RULES[subNode.def.subruneRuleKey];
         if (!rule) {
             if (!opts.silent) this.log('🚫 У ' + subNode.label + ' нет правил прикрепления.', 'warn');
             return null;
         }
-
-        if (fromNode.def.isSubrune) {
-            if (fromPort < 0 || fromPort >= (subNode.def?.outputs || 0)) {
-                if (!opts.silent) this.log('🚫 У сабруны ' + subNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
-                return null;
-            }
-            if (toPort < 0 || toPort >= (hostNode.def?.inputs || 0)) {
-                if (!opts.silent) this.log('🚫 У блока ' + hostNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
-                return null;
-            }
-        } else {
-            if (fromPort < 0 || fromPort >= (hostNode.def?.outputs || 0)) {
-                if (!opts.silent) this.log('🚫 У блока ' + hostNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
-                return null;
-            }
-            if (toPort < 0 || toPort >= (subNode.def?.inputs || 0)) {
-                if (!opts.silent) this.log('🚫 У сабруны ' + subNode.label + ' нет входного порта #' + (toPort + 1) + '.', 'warn');
-                return null;
-            }
-        }
-
-        const same = this.connections.find(c => c.fromNode === fromNode && c.fromPort === fromPort && c.toNode === toNode && c.toPort === toPort);
-        if (same) {
-            if (!opts.silent) this.log('ℹ️ Такой мостик уже существует.', 'sys');
-            return same;
-        }
-
-        const alreadyAttachedElsewhere = this.connections.find(c => c.bridge && c.bridge.isAttachment && (c.fromNode === subNode || c.toNode === subNode));
-        if (alreadyAttachedElsewhere) {
-            const existingHost = alreadyAttachedElsewhere.fromNode === subNode ? alreadyAttachedElsewhere.toNode : alreadyAttachedElsewhere.fromNode;
-            if (existingHost !== hostNode) {
-                if (!opts.silent) this.log('🚫 Сабруна ' + subNode.label + ' уже прикреплена к ' + existingHost.label + '.', 'warn');
-                return null;
-            }
-        }
-
-        const maxSub = hostNode.def.maxSubrunes || 3;
-        const hostAttachmentCount = this.connections.filter(c => c.bridge && c.bridge.isAttachment && (c.fromNode === hostNode || c.toNode === hostNode)).length;
-        if (!hostNode.attachedSubrunes.includes(subNode) && hostAttachmentCount >= maxSub) {
-            if (!opts.silent) this.log('🚫 Лимит точек крепления сабрун на ' + hostNode.label + ' достигнут.', 'warn');
-            return null;
-        }
-
-        const isAllowed = isSubruneCompatibleHost(hostNode, rule);
-        if (!isAllowed) {
+        if (!isSubruneCompatibleHost(hostNode, rule)) {
             if (!opts.silent) this.log('🚫 Сабруна ' + subNode.label + ' несовместима с ' + hostNode.label + ' (' + hostNode.def.family + ').', 'warn');
             return null;
         }
-
-        const outCount = this.getPortConnectionCount(fromNode, fromPort, 'out');
-        const outCap = this.getPortCapacity(fromNode, fromPort, 'out');
-        if (outCount >= outCap) {
-            if (!opts.silent) this.log('🚫 Выходной порт уже заполнен.', 'warn');
-            return null;
-        }
-        const inCount = this.getPortConnectionCount(toNode, toPort, 'in');
-        const inCap = this.getPortCapacity(toNode, toPort, 'in');
-        if (inCount >= inCap) {
-            if (!opts.silent) this.log('🚫 Входной порт уже заполнен.', 'warn');
-            return null;
-        }
-
-        opts = { ...opts, isAttachment: true };
+        opts = { ...opts, isAttachment: true, attachmentIndex: attachmentIndex };
     } else {
+        // Обычная проверка портов (только для не-сабрунных соединений)
         if (fromPort < 0 || fromPort >= (fromNode.def?.outputs || 0)) {
             if (!opts.silent) this.log('🚫 У блока ' + fromNode.label + ' нет выходного порта #' + (fromPort + 1) + '.', 'warn');
             return null;
@@ -3977,33 +4082,56 @@ this.log('✨ ' + (input.sourceTag ? '[' + input.sourceTag + '] ' : '') + effTex
 
 getPortPos(node, index, type) {
     const t = node.def.type;
+    
+    // Логика для точек крепления сабрун
+    if (index < 0) {
+        const subIndex = -(index + 1);
+        const count = node.def.maxSubrunes || 0;
+        if (subIndex >= count) return { x: node.x, y: node.y };
+        const scale = this.viewport.scale;
+        const nTop = Math.ceil(count / 2);
+        const nBot = count - nTop;
+        const cx = node.x + node.w / 2;
+        const topY = node.y - 10 / scale;
+        const botY = node.y + node.h + 10 / scale;
+        const spacing = 20 / scale;
+        const isTop = (subIndex % 2 === 0);
+        const k = Math.floor(subIndex / 2);
+        let startX;
+        if (isTop) startX = cx - ((nTop - 1) * spacing) / 2;
+        else startX = cx - ((nBot - 1) * spacing) / 2;
+        const x = startX + k * spacing;
+        const y = isTop ? topY : botY;
+        return { x, y };
+    }
+
     if (node.def.isSubrune) {
-      return { x: node.x + node.w, y: node.y + node.h * 0.5 };
+        return { x: node.x + node.w, y: node.y + node.h * 0.5 };
     }
     if (isCircleSimple(node)) {
-      const g = this.getCircleProcessorGeom(node);
-      const inset = 6 / this.viewport.scale;
-      if (type === 'in') {
-        if (index === 0) return { x: g.leftTabs[0].x1 + inset, y: (g.leftTabs[0].y1 + g.leftTabs[0].y2) / 2 };
-        if (index === 1) return { x: g.leftTabs[1].x1 + inset, y: (g.leftTabs[1].y1 + g.leftTabs[1].y2) / 2 };
-        if (index === 2) return { x: (g.topTabs[0].x1 + g.topTabs[0].x2) / 2, y: g.topTabs[0].y1 + inset };
-        if (index === 3) return { x: (g.topTabs[1].x1 + g.topTabs[1].x2) / 2, y: g.topTabs[1].y1 + inset };
-      } else {
-        if (index === 0) return { x: g.rightTabs[0].x2 - inset, y: (g.rightTabs[0].y1 + g.rightTabs[0].y2) / 2 };
-        if (index === 1) return { x: g.rightTabs[1].x2 - inset, y: (g.rightTabs[1].y1 + g.rightTabs[1].y2) / 2 };
-        if (index === 2) return { x: (g.bottomTabs[0].x1 + g.bottomTabs[0].x2) / 2, y: g.bottomTabs[0].y2 - inset };
-        if (index === 3) return { x: (g.bottomTabs[1].x1 + g.bottomTabs[1].x2) / 2, y: g.bottomTabs[1].y2 - inset };
-      }
+        const g = this.getCircleProcessorGeom(node);
+        const inset = 6 / this.viewport.scale;
+        if (type === 'in') {
+            if (index === 0) return { x: g.leftTabs[0].x1 + inset, y: (g.leftTabs[0].y1 + g.leftTabs[0].y2) / 2 };
+            if (index === 1) return { x: g.leftTabs[1].x1 + inset, y: (g.leftTabs[1].y1 + g.leftTabs[1].y2) / 2 };
+            if (index === 2) return { x: (g.topTabs[0].x1 + g.topTabs[0].x2) / 2, y: g.topTabs[0].y1 + inset };
+            if (index === 3) return { x: (g.topTabs[1].x1 + g.topTabs[1].x2) / 2, y: g.topTabs[1].y1 + inset };
+        } else {
+            if (index === 0) return { x: g.rightTabs[0].x2 - inset, y: (g.rightTabs[0].y1 + g.rightTabs[0].y2) / 2 };
+            if (index === 1) return { x: g.rightTabs[1].x2 - inset, y: (g.rightTabs[1].y1 + g.rightTabs[1].y2) / 2 };
+            if (index === 2) return { x: (g.bottomTabs[0].x1 + g.bottomTabs[0].x2) / 2, y: g.bottomTabs[0].y2 - inset };
+            if (index === 3) return { x: (g.bottomTabs[1].x1 + g.bottomTabs[1].x2) / 2, y: g.bottomTabs[1].y2 - inset };
+        }
     }
     if (t === 'effector_light_rgb') {
-      if (type === 'in' && index === 0) return { x: node.x, y: node.y + node.h * 0.5 };
-      if (type === 'out' && index === 0) return { x: node.x + node.w, y: node.y + node.h * 0.5 };
+        if (type === 'in' && index === 0) return { x: node.x, y: node.y + node.h * 0.5 };
+        if (type === 'out' && index === 0) return { x: node.x + node.w, y: node.y + node.h * 0.5 };
     }
     if (t === 'logic_reverse' || t === 'logic_reverse_auto') return { x: node.x, y: node.y + node.h * 0.5 };
     const count = type === 'in' ? node.def.inputs : node.def.outputs;
     const y = node.y + node.h * (index + 1) / (count + 1);
     return { x: type === 'in' ? node.x : node.x + node.w, y };
-  }
+}
 
   getPortAt(x, y, preferType = null) {
     const threshold = (this.isMobile ? 24 : 18) / this.viewport.scale;
@@ -4011,8 +4139,8 @@ getPortPos(node, index, type) {
     let bestDist = Infinity;
     for (const node of this.nodes) {
         const scanKinds = (node.def.isSubrune && preferType)
-          ? [preferType, preferType === 'out' ? 'in' : 'out']
-          : ['in', 'out'];
+            ? [preferType, preferType === 'out' ? 'in' : 'out']
+            : ['in', 'out'];
         for (const kind of scanKinds) {
             const count = kind === 'in' ? node.def.inputs : node.def.outputs;
             for (let i = 0; i < count; i++) {
@@ -4020,6 +4148,32 @@ getPortPos(node, index, type) {
                 const d = Math.hypot(x - p.x, y - p.y);
                 if (d < threshold && d < bestDist) {
                     best = { node, index: i, type: kind };
+                    bestDist = d;
+                }
+            }
+        }
+        
+        // Проверка точек крепления сабрун
+        const subCount = node.def.maxSubrunes || 0;
+        if (subCount > 0) {
+            const scale = this.viewport.scale;
+            const nTop = Math.ceil(subCount / 2);
+            const nBot = subCount - nTop;
+            const cx = node.x + node.w / 2;
+            const topY = node.y - 10 / scale;
+            const botY = node.y + node.h + 10 / scale;
+            const spacing = 20 / scale;
+            for (let i = 0; i < subCount; i++) {
+                const isTop = (i % 2 === 0);
+                const k = Math.floor(i / 2);
+                let startX;
+                if (isTop) startX = cx - ((nTop - 1) * spacing) / 2;
+                else startX = cx - ((nBot - 1) * spacing) / 2;
+                const px = startX + k * spacing;
+                const py = isTop ? topY : botY;
+                const d = Math.hypot(x - px, y - py);
+                if (d < threshold && d < bestDist) {
+                    best = { node, index: -(i + 1), type: 'in' };
                     bestDist = d;
                 }
             }
@@ -4079,10 +4233,22 @@ getPortPos(node, index, type) {
   }
 
   deleteBridge(bridge, silent = false) {
+    // Если мостик был прикреплением, открепляем сабруну логически
+    if (bridge.isAttachment) {
+        const host = bridge.a.def.isSubrune ? bridge.b : bridge.a;
+        const sub  = bridge.a.def.isSubrune ? bridge.a : bridge.b;
+        if (host && host.attachedSubrunes) {
+            const idx = host.attachedSubrunes.indexOf(sub);
+            if (idx !== -1) {
+                host.attachedSubrunes.splice(idx, 1);
+                this.log('🔌 Сабруна ' + sub.label + ' откреплена от ' + host.label, 'sys');
+            }
+        }
+    }
     this.bridges = this.bridges.filter(b => b !== bridge);
     this.connections = this.connections.filter(c => c.bridge !== bridge);
     if (!silent) this.log('🗑 Удалён мостик.', 'warn');
-  }
+}
 
   toggleDeleteMode() {
     this.isDeleteMode = !this.isDeleteMode;
@@ -4253,32 +4419,55 @@ getPortPos(node, index, type) {
     ctx.fill();
     ctx.stroke();
     ctx.shadowBlur = 0;
+    drawAttachmentPoints(this.ctx, node, this.viewport.scale); // 👈 Вставьте сюда
 
     // ✅ Отрисовка прикрепленных сабрун (вставьте сюда)
-    if (node.attachedSubrunes && node.attachedSubrunes.length > 0) {
-        const total = node.attachedSubrunes.length;
-        const hostRadius = Math.min(node.w, node.h) * 0.5;
-        const subRadius = hostRadius * 0.2;
-        for (let i = 0; i < total; i++) {
-            const sub = node.attachedSubrunes[i];
-            const angle = (Math.PI * 2 / total) * i - Math.PI / 2;
-            const sx = node.x + node.w / 2 + Math.cos(angle) * (hostRadius + subRadius * 1.5);
-            const sy = node.y + node.h / 2 + Math.sin(angle) * (hostRadius * 0.85);
-            const side = subRadius * 2.05;
-            ctx.beginPath();
-            ctx.roundRect(sx - side / 2, sy - side / 2, side, side, 4 / this.viewport.scale);
-            ctx.fillStyle = '#0f172a';
-            ctx.fill();
-            ctx.strokeStyle = sub.def.color;
-            ctx.lineWidth = 1.5 / this.viewport.scale;
-            ctx.stroke();
-            ctx.fillStyle = sub.def.color;
-            ctx.font = (7 / this.viewport.scale) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(sub.def.label.substring(0, 3), sx, sy);
+    // ✅ Отрисовка прикрепленных сабрун (ОБНОВЛЕННЫЙ БЛОК)
+if (node.attachedSubrunes && node.attachedSubrunes.length > 0) {
+    const total = node.attachedSubrunes.length;
+    const spacing = 20 / this.viewport.scale; // Должно совпадать с drawAttachmentPoints
+    
+    // Используем maxSubrunes для расчета сетки, чтобы точки стояли на местах слотов
+    const m = node.def.maxSubrunes || total; 
+    const nT = Math.ceil(m / 2);
+    const nB = m - nT;
+    const cx = node.x + node.w / 2;
+    const topY = node.y - 10 / this.viewport.scale;
+    const botY = node.y + node.h + 10 / this.viewport.scale;
+    
+    for (let i = 0; i < total; i++) {
+        // Повторяем логику расчета координат из drawAttachmentPoints
+        const isTop = (i % 2 === 0);
+        const k = Math.floor(i / 2);
+        
+        let startX;
+        if (isTop) {
+            startX = cx - ((nT - 1) * spacing) / 2;
+        } else {
+            startX = cx - ((nB - 1) * spacing) / 2;
         }
+        
+        const x = startX + k * spacing;
+        const y = isTop ? topY : botY;
+
+        const sub = node.attachedSubrunes[i];
+        const side = 12 / this.viewport.scale; // Размер иконки
+
+        ctx.beginPath();
+        ctx.roundRect(x - side/2, y - side/2, side, side, 2 / this.viewport.scale);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = sub.def.color;
+        ctx.lineWidth = 1.5 / this.viewport.scale;
+        ctx.stroke();
+        
+        ctx.fillStyle = sub.def.color;
+        ctx.font = (6 / this.viewport.scale) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(sub.def.label.substring(0, 3), x, y);
     }
+}
 
     if (node.state.flash > 0) {
       const flashColor = lightBaseColor ? cssRgbWithAlpha(lightBaseColor, 0.12 + node.state.flash * 0.18) : ('rgba(251, 191, 36,' + (0.12 + node.state.flash * 0.18) + ')');
@@ -5184,12 +5373,14 @@ getPortPos(node, index, type) {
         const row = document.createElement('div');
         row.className = 'rune-item';
         row.draggable = true;
+        const subPoints = item.def.maxSubrunes || 0;
+        const subText = subPoints > 0 ? `<br><span style="color:#fbbf24">Точки сабрун: ${subPoints}</span>` : '';
         row.innerHTML = `
-          <div class="color-dot" style="background:${item.def.color};color:${item.def.color}"></div>
-          <div style="min-width:0">
-            <div class="item-title">${item.def.label}</div>
-            <div class="item-desc">${item.def.desc}<br>Delay: ${item.def.delay} мс</div>
-          </div>
+        <div class="color-dot" style="background:${item.def.color};color:${item.def.color}"></div>
+        <div style="min-width:0">
+        <div class="item-title">${item.def.label}</div>
+        <div class="item-desc">${item.def.desc}<br>Delay: ${item.def.delay} мс${subText}</div>
+        </div>
         `;
         row.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', item.id));
         row.addEventListener('click', () => {
